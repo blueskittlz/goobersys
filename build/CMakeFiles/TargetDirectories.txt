@@ -1,0 +1,4 @@
+/home/bluee/goobersys/build/CMakeFiles/bootloader_bin.dir
+/home/bluee/goobersys/build/CMakeFiles/kernel.bin.dir
+/home/bluee/goobersys/build/CMakeFiles/edit_cache.dir
+/home/bluee/goobersys/build/CMakeFiles/rebuild_cache.dir
