@@ -53,7 +53,7 @@ make clean
 ## Troubleshooting
 
 - Ensure all dependencies are installed.
-- Check the `Makefile` for architecture-specific settings.
+- Check the `CMakeLists.txt` for architecture-specific settings.
 - Review build output for errors.
 
 ## Contributing
