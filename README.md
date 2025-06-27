@@ -7,7 +7,7 @@ Welcome to the GooberSys build guide! Follow these steps to build and run Goober
 - **Operating System:** Ubuntu Linux (recommended, or use WSL with Ubuntu)
 - **Dependencies:**
     - `clang` 
-    - `make`
+    - `cmake`
     - `qemu` (for emulation/testing)
     - `nasm` 
     - `git`
