@@ -1,0 +1,3 @@
+GOALS
+
+1. Working GUI with terminal [1/2]

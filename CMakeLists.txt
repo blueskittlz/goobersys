@@ -1,57 +1,72 @@
-cmake_minimum_required(VERSION 3.15)
-project(GooberSys LANGUAGES C CXX ASM_NASM)
+cmake_minimum_required(VERSION 3.13)
+project(GooberUEFI C CXX)
 
-# Include path for libs
-include_directories(${CMAKE_SOURCE_DIR}/lib/include)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Assemble bootloader.asm to raw binary with NASM
-add_custom_command(
-    OUTPUT ${CMAKE_BINARY_DIR}/bootloader.bin
-    COMMAND nasm -f bin ${CMAKE_SOURCE_DIR}/boot/bootloader.asm -o ${CMAKE_BINARY_DIR}/bootloader.bin
-    DEPENDS ${CMAKE_SOURCE_DIR}/boot/bootloader.asm
-    COMMENT "Assembling bootloader with NASM"
-)
-add_custom_target(bootloader_bin ALL DEPENDS ${CMAKE_BINARY_DIR}/bootloader.bin)
+# Specify compiler
+# (Do not set CMAKE_C_COMPILER or CMAKE_CXX_COMPILER here; set them via the command line)
 
-# Kernel sources (exclude bootloader.asm)
-set(SOURCES
-    kernel/main.cc
-    kernel/arch/x86/isr.cc
-    kernel/drivers/keyboard.cc
-    kernel/drivers/vga.cc
-    shell/shell.cpp
-    lib/string.cc
-    kernel/arch/x86/gdt.asm
-    kernel/arch/x86/idt.asm
+# Compiler flags as list separate each flag with a space, no semicolons
+set(COMMON_FLAGS
+    -target x86_64-pc-windows-gnu
+    -ffreestanding
+    -fpie
+    -fno-exceptions
+    -fno-rtti
+    -fshort-wchar
+    -fvisibility=hidden
+    -mcmodel=small
 )
 
-# Enable NASM assembler
-enable_language(ASM_NASM)
+add_compile_options(${COMMON_FLAGS})
 
-# Kernel executable
-add_executable(kernel.bin ${SOURCES})
-
-# Make kernel depend on bootloader
-add_dependencies(kernel.bin bootloader_bin)
-
-# Include dirs
-target_include_directories(kernel.bin PRIVATE ${CMAKE_SOURCE_DIR}/lib/include)
-
-# Compile options for 32-bit, no pie
-target_compile_options(kernel.bin PRIVATE
-    $<$<COMPILE_LANGUAGE:C>:-Wall -Wextra -nostdlib -ffreestanding -m32 -fno-pie>
-    $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wextra -nostdlib -ffreestanding -m32 -fno-pie>
+set(LINKER_FLAGS
+    -nostdlib
+    -fuse-ld=lld
+    -Wl,--entry=efi_main
+    -Wl,--subsystem=10         # EFI_APPLICATION
+    -Wl,--image-base,0x100000
+    -Wl,--emit-relocs
+    -Wl,--dll
+    -Wl,--oformat=pei-x86-64   # PE/COFF output
 )
 
-# Linker options, 32-bit, no pie, use linker script
-set(LINKER_SCRIPT ${CMAKE_SOURCE_DIR}/kernel.ld)
-target_link_options(kernel.bin PRIVATE -no-pie -m32 -T ${LINKER_SCRIPT})
+set(CMAKE_SHARED_LINKER_FLAGS "-fuse-ld=lld")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld")
 
-# NASM flags for assembly files (elf32)
-set_source_files_properties(
-    kernel/arch/x86/gdt.asm
-    kernel/arch/x86/idt.asm
-    PROPERTIES
-    LANGUAGE ASM_NASM
-    COMPILE_FLAGS "-f elf32"
+include_directories(
+    ${PROJECT_SOURCE_DIR}/edk2/MdePkg/Include
+    ${PROJECT_SOURCE_DIR}/edk2/MdePkg/Include/Protocol
+    ${PROJECT_SOURCE_DIR}/edk2/MdePkg/Include/IndustryStandard
+    ${PROJECT_SOURCE_DIR}/edk2/MdePkg/Include/Base
+    ${PROJECT_SOURCE_DIR}/edk2/MdePkg/Include/X64
+    ${PROJECT_SOURCE_DIR}/edk2/MdePkg/Include/Library
 )
+set(CMAKE_EXE_LINKER_FLAGS "-target x86_64-efi -nostdlib -fuse-ld=lld -Wl,--entry=efi_main -Wl,-T,${CMAKE_SOURCE_DIR}/src/efi.ld")
+set(CMAKE_LINKER lld-link)
+set(CMAKE_CXX_LINK_EXECUTABLE "<CMAKE_LINKER> /subsystem:efi_application /entry:efi_main /out:<TARGET_FILE> <OBJECTS> <LINK_LIBRARIES>")
+
+add_executable(BOOTX64.EFI
+    src/main.cpp
+    src/framebuffer.cpp
+    src/gui_window.cpp
+    src/input_mouse.cpp
+    src/input_keyboard.cpp
+    src/terminal.cpp
+)
+set_target_properties(BOOTX64.EFI PROPERTIES
+  OUTPUT_NAME "BOOTX64"
+  SUFFIX ".EFI"
+)
+
+target_link_options(BOOTX64.EFI PRIVATE ${LINKER_FLAGS})
+
+# Ensure only clang is used
+if(NOT "${CMAKE_C_COMPILER_ID}" STREQUAL "Clang")
+  message(FATAL_ERROR "Clang is required as the C compiler!")
+endif()
+if(NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+  message(FATAL_ERROR "Clang is required as the C++ compiler!")
+endif()
